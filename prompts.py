@@ -42,7 +42,7 @@ Then provide 3 example questions using bullet points.
 """
 
 
-@st.experimental_memo(show_spinner=False)
+@st.cache_data(show_spinner=False)
 def get_table_context(table_name: str, table_description: str):
     table = table_name.split(".")
     conn = st.experimental_connection("snowpark")
