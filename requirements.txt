@@ -1,6 +1,6 @@
 openai==0.27.2
 streamlit==1.12.2
-snowpark==1.8.0
+snowpark
 regex
 snowflake-connector-python
 streamlit_chat
