@@ -1,5 +1,5 @@
 openai==0.27.2
-streamlit==1.4.1
+streamlit==1.4.0
 snowpark==0.6.0
 regex
 snowflake-connector-python
