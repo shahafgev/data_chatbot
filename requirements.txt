@@ -3,3 +3,4 @@ streamlit==1.12.2
 snowpark==1.8.0
 regex
 snowflake-connector-python
+streamlit_chat
