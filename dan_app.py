@@ -38,6 +38,9 @@ if st.session_state.messages[-1]["role"] != "assistant":
             response += delta.choices[0].delta.get("content", "")
             resp_container.markdown(response)
 
+        # Add the SQL statement to the response
+        response_with_sql = response + "\nALTER SESSION SET CLIENT_SESSION_KEEP_ALIVE = TRUE"
+        
         message = {"role": "assistant", "content": response}
         # Parse the response for a SQL query and execute if available
         sql_match = re.search(r"```sql\n(.*)\n```", response, re.DOTALL)
