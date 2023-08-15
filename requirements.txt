@@ -4,3 +4,4 @@ regex
 snowflake-connector-python==3.0.1
 snowflake-snowpark-python[pandas]
 streamlit_chat
+snowflake
