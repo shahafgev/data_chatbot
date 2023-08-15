@@ -1,5 +1,6 @@
 import openai
 import re
+import snowflake
 import streamlit as st
 from prompts import get_system_prompt
 
@@ -30,22 +31,38 @@ if st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
         response = ""
         resp_container = st.empty()
-        for delta in openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-            stream=True,
-        ):
-            response += delta.choices[0].delta.get("content", "")
-            resp_container.markdown(response)
+        try:
+            for delta in openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+                stream=True,
+            ):
+                response += delta.choices[0].delta.get("content", "")
+                resp_container.markdown(response)
 
-        
-        message = {"role": "assistant", "content": response}
-        # Parse the response for a SQL query and execute if available
-        sql_match = re.search(r"```sql\n(.*)\n```", response, re.DOTALL)
-        if sql_match:
-            sql = sql_match.group(1)
-            conn = st.experimental_connection("snowpark")
-            message["results"] = conn.query(sql)
-            st.dataframe(message["results"])
-        st.session_state.messages.append(message)
-
+            message = {"role": "assistant", "content": response}
+            # Parse the response for a SQL query and execute if available
+            sql_match = re.search(r"```sql\n(.*)\n```", response, re.DOTALL)
+            if sql_match:
+                sql = sql_match.group(1)
+                try:
+                    conn = st.experimental_connection("snowpark")
+                    message["results"] = conn.query(sql)
+                    st.dataframe(message["results"])
+                except snowflake.snowpark.exceptions.SnowparkSQLException as e:
+                    if "Authentication token has expired" in str(e):
+                        # Reauthenticate and establish a new session
+                        conn = st.experimental_connection("snowpark")
+                        message["results"] = conn.query(sql)
+                        st.dataframe(message["results"])
+                    else:
+                        st.error("An error occurred: " + str(e))
+            st.session_state.messages.append(message)
+        except snowflake.snowpark.exceptions.SnowparkSQLException as e:
+            if "Authentication token has expired" in str(e):
+                # Reauthenticate and establish a new session
+                conn = st.experimental_connection("snowpark")
+                message["results"] = conn.query(sql)
+                st.dataframe(message["results"])
+            else:
+                st.error("An error occurred: " + str(e))
