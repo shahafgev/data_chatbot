@@ -5,3 +5,4 @@ snowflake-connector-python
 snowflake-snowpark-python==0.7.0
 streamlit_chat
 snowflake
+snowflake.snowpark.context
