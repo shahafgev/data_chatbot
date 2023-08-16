@@ -1,8 +1,8 @@
-openai==0.27.2
+openai==0.27.8
 streamlit==1.24.0
 regex
-snowflake-connector-python==2.9.2
-snowflake-snowpark-python==0.7.0
+snowflake_snowpark_python==1.5.0
+snowflake-snowpark-python[pandas]
 streamlit_chat
 snowflake
-snowflake.snowpark.context
+
