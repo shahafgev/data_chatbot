@@ -1,6 +1,18 @@
 import streamlit as st
+import os
+import pandas as pd
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
-QUALIFIED_TABLE_NAME = "FROSTY_SAMPLE.NBA.PER_GAME_STATS"
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1zMDhsBkM6lb2yci3vqeoS--Vsz2-SryFnYP3I_dDqI4"
+RANGE_NAME = "Sheet1!A:AC"  # Data starts from column A and AC
+
+
+QUALIFIED_TABLE_NAME = "Sheet1"
 TABLE_DESCRIPTION = """
 
 This view contains various statistics for NBA players during the 2021-2022 season, representing averages per game.
@@ -44,17 +56,39 @@ Then provide 3 example questions using bullet points.
 """
 
 
-@st.cache_data(show_spinner=False)
-def get_table_context(table_name: str, table_description: str):
-    table = table_name.split(".")
-    conn = st.experimental_connection("snowpark")
-    columns = conn.query(f"""
-        SELECT COLUMN_NAME, DATA_TYPE FROM {table[0].upper()}.INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = '{table[1].upper()}' AND TABLE_NAME = '{table[2].upper()}'
-        """,
-                         )
+def get_table_from_sheet():
+    credentials = None
+    if os.path.exists("token.json"):
+        credentials = Credentials.from_authorized_user_file("token.json")
+    if not credentials or not credentials.valid:
+        if credentials and credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            credentials = flow.run_local_server(port=0)
+        with open("token.json", "w") as token:
+            token.write(credentials.to_json())
+    try:
+        service = build("sheets", "v4", credentials=credentials)
+        sheets = service.spreadsheets()
+        result = sheets.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+        values = result.get("values", [])
+        if values:
+            QA_df = pd.DataFrame(values[1:], columns=values[0])  # Assuming the first row contains headers
+            return QA_df
+        else:
+            print("No data found in the sheet.")
+    except HttpError as error:
+        print(error)
 
-    # Create a dictionary to map column names to their descriptions
+
+
+def get_table_context(table_name: str, table_description: str, rows):
+    # Extract column names from the first row of the Google Sheet data
+    header_row = rows[0]
+    column_names = header_row
+
+    # Generate a dictionary of column descriptions (assuming you have these in a separate sheet)
     column_descriptions = {
         "PLAYER": "The player name",
         "POS": "Player position (C = center, PF = power forward, SF = small forward, SG = shooting guard, PG = point guard)",
@@ -121,14 +155,15 @@ def get_table_context(table_name: str, table_description: str):
         [
             f"- **{column_name}**: {description}"
             for column_name, description in column_descriptions.items()
+            if column_name in column_names  # Only include descriptions for available columns
         ]
     )
 
     context = f"""
-    Here is the table name <tableName> {'.'.join(table)} </tableName>
+    Here is the table name <tableName> {table_name} </tableName>
 
     <tableDescription>{table_description}</tableDescription>
-    
+
     Here are the player statistics available in the view:
 
     {column_descriptions_formatted}
@@ -136,12 +171,18 @@ def get_table_context(table_name: str, table_description: str):
     return context
 
 
+
 def get_system_prompt():
-    table_context = get_table_context(
-        table_name=QUALIFIED_TABLE_NAME,
-        table_description=TABLE_DESCRIPTION
-    )
-    return GEN_SQL.format(context=table_context)
+    google_sheet_data = get_table_from_sheet()  # Get Google Sheet data
+    if google_sheet_data is not None:
+        table_context = get_table_context(
+            table_name=QUALIFIED_TABLE_NAME,
+            table_description=TABLE_DESCRIPTION,
+            rows=google_sheet_data.values.tolist()  # Convert DataFrame to a list of rows
+        )
+        return GEN_SQL.format(context=table_context)
+    else:
+        return "Error getting Google Sheet data"
 
 
 # do `streamlit run prompts.py` to view the initial system prompt in a Streamlit app
