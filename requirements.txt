@@ -1,8 +1,6 @@
-openai==0.27.8
-streamlit==1.24.0
-regex
-snowflake_snowpark_python==1.5.0
-snowflake-snowpark-python[pandas]
-streamlit_chat
-snowflake
+streamlit>=1.25.0
+openai>=0.27.8
+gsheetsdb>=0.1.13.1
+google-auth>=2.3.0
 
+pandas~=2.0.1
