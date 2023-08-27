@@ -1,15 +1,19 @@
 import openai
 import re
 import streamlit as st
-from prompts import get_system_prompt
+from prompts import get_system_prompt, get_table_from_sheet
+
+
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1zMDhsBkM6lb2yci3vqeoS--Vsz2-SryFnYP3I_dDqI4"
+RANGE_NAME = "Sheet1!A:AC"  # Data starts from column A and AC
 
 st.title("👨🏻‍💻 Dan - Data Analyst chatbot")
 
 # Initialize the chat messages history
 openai.api_key = st.secrets.OPENAI_API_KEY
 if "messages" not in st.session_state:
-    # system prompt includes table information, rules, and prompts the LLM to produce
-    # a welcome message to the user.
+    # system prompt includes table information, rules, and prompts the LLM to produce a welcome message to the user.
     st.session_state.messages = [{"role": "system", "content": get_system_prompt()}]
 
 # Prompt for user input and save
@@ -45,8 +49,9 @@ if st.session_state.messages[-1]["role"] != "assistant":
         sql_match = re.search(r"```sql\n(.*)\n```", response, re.DOTALL)
         if sql_match:
             sql = sql_match.group(1)
-            conn = st.experimental_connection("snowpark")
-            message["results"] = conn.query(sql)
-            st.dataframe(message["results"])
+            google_sheet_data = get_table_from_sheet()
+            if google_sheet_data is not None:
+                st.dataframe(google_sheet_data)
         st.session_state.messages.append(message)
+
 
