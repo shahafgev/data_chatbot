@@ -2,5 +2,5 @@ streamlit>=1.25.0
 openai>=0.27.8
 gsheetsdb>=0.1.13.1
 google-auth>=2.3.0
-
+ 
 pandas~=2.0.1
